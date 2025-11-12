@@ -1,4 +1,3 @@
-# src/metrics.py
 from __future__ import annotations
 
 import numpy as np
@@ -15,11 +14,9 @@ def _series_1d(x) -> pd.Series:
     - If still not 1D, flattens in row-major order (ravel)
     """
     if isinstance(x, pd.DataFrame):
-        # If a single-column DataFrame slipped in, convert to Series
         if x.shape[1] == 1:
             x = x.squeeze("columns")
         else:
-            # Flatten multi-col data rather than erroring (robust in pipelines)
             arr = np.asarray(x).ravel()
             return pd.Series(arr, dtype=float)
 
@@ -30,19 +27,11 @@ def _series_1d(x) -> pd.Series:
 
 
 def cumulative_returns(returns) -> pd.Series:
-    """
-    Cumulative return series from per-period simple returns r_t:
-    (1 + r).cumprod() - 1
-    """
     r = _series_1d(returns)
     return (1.0 + r).cumprod() - 1.0
 
 
 def annualized_return(returns, freq: int = TRADING_DAYS) -> float:
-    """
-    Geometric annualized return from per-period simple returns.
-    Assumes evenly spaced observations with 'freq' periods per year.
-    """
     r = _series_1d(returns)
     n = len(r)
     if n == 0:
@@ -55,9 +44,6 @@ def annualized_return(returns, freq: int = TRADING_DAYS) -> float:
 
 
 def annualized_vol(returns, freq: int = TRADING_DAYS) -> float:
-    """
-    Annualized standard deviation of per-period returns.
-    """
     r = _series_1d(returns)
     if len(r) < 2:
         return 0.0
@@ -65,11 +51,6 @@ def annualized_vol(returns, freq: int = TRADING_DAYS) -> float:
 
 
 def sharpe_ratio(returns, rf: float = 0.0, freq: int = TRADING_DAYS) -> float:
-    """
-    Annualized Sharpe ratio using per-period simple returns and an annual rf.
-    Sharpe = (mean(excess) * freq) / (std(excess) * sqrt(freq))
-    where excess = r_t - rf/freq.
-    """
     r = _series_1d(returns)
     if len(r) < 2:
         return 0.0
@@ -83,10 +64,6 @@ def sharpe_ratio(returns, rf: float = 0.0, freq: int = TRADING_DAYS) -> float:
 
 
 def max_drawdown(returns) -> float:
-    """
-    Maximum drawdown from per-period simple returns.
-    Returns a non-positive number (e.g., -0.25 for -25%).
-    """
     r = _series_1d(returns)
     if len(r) == 0:
         return 0.0

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from src.single_asset_env import SingleAssetTradingEnv, EnvConfig
+from src.envs.single_asset_env import SingleAssetTradingEnv, EnvConfig
 
 
 def test_env_shapes():

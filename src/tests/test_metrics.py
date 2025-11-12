@@ -1,5 +1,5 @@
 import numpy as np
-from src import metrics as M
+from src.utils import metrics as M
 
 
 def test_metrics_basic():
