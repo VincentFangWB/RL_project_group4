@@ -111,3 +111,5 @@ This writes to `--out-dir`:
 - `actions.csv` (all operations, day by day)
 - `trades.csv` (only buy/sell rows)
 - Console shows a metrics table (annualized return/vol, Sharpe, max drawdown, cumulative return)
+
+https://aws.amazon.com/blogs/machine-learning/automated-decision-making-with-deep-reinforcement-learning/

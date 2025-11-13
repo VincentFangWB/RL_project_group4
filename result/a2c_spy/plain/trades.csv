@@ -1,0 +1,2 @@
+date,price,prev_pos,action,new_pos,turnover,reward,portfolio_value,portfolio_ret,trade
+2023-02-14,397.8285827636719,0.0,1.0,1.0,1.0,-0.00105,0.99895,-0.0010499999999999954,BUY
