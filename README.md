@@ -211,7 +211,7 @@ This is designed to test whether the DQN can **“hide in cash”** during downt
 
 ```bash
 # Example: downtrend basket
-python -m src.backtest.evaluate_enhanced_dqn_template_cash   --model-path model/enhanced_dqn_cash_down.pt   --tickers "VEON,PRGO"   --start 2023-01-01   --end   2025-11-12   --window 30   --transaction-cost 0.001   --risk-lambda 0.1   --rolling-window 30   --max-steps 2000   --out-dir result/eval_enhanced_dqn_cash_down
+python -m src.backtest.evaluate_enhanced_dqn_template_cash   --model-path model/enhanced_dqn_cash_down.pt   --tickers "VEON,PRGO"   --start 2023-01-01   --end   2025-11-12   --window 30   --transaction-cost 0.001   --risk-lambda 0.1   --rolling-window 30   --max-steps 2000   --max-steps 2000   --out-dir result/eval_enhanced_dqn_cash_down
 ```
 
 Outputs include:
@@ -224,14 +224,23 @@ Outputs include:
 
 ## 3. Experiments & Findings
 
-This repo supports three main experiments, all using the same time split
-(**train: 2010-01-01 to 2022-12-31; eval: 2023-01-01 to 2025-11-12**):
+### 3.0. Overall Experimental Logic
 
-1. **Single-Asset (SPY) – PPO / A2C / DQN**  
-2. **Multi-Asset Uptrend (10 stocks, no cash) – PPO / A2C / DQN / Enhanced DQN**  
-3. **Multi-Asset with Cash, Three Regimes – Enhanced DQN (uptrend / range / downtrend)**  
+The experimental design follows a step-by-step logic:
 
-Below is a high-level summary plus reasoning.
+1. **Start with a single broad index (SPY) and pure timing.**  
+   First we ask: if an RL agent is allowed to time **only SPY** (no other assets), can it learn a trading policy that beats SPY buy-and-hold over a long horizon?
+
+2. **Then move to a multi-asset uptrend universe.**  
+   Next we expand to a **basket of 10 large-cap stocks** in a long-term uptrend. RL can freely allocate weights among these stocks. The question becomes: can RL exploit cross-sectional information (relative winners/losers) to beat a simple **equal-weight** portfolio and broad market benchmarks?
+
+3. **Finally, test enhanced DQN in different regimes (uptrend, range, downtrend) with cash.**  
+   We realized that the first two experiments are mainly in **long bull markets**, which are very friendly to buy-and-hold and equal-weight. To stress-test the method, we create separate universes for **uptrend, range-bound, and downtrend** regimes, add an explicit **cash position**, and see whether an **enhanced DQN** can meaningfully adjust risk (e.g., stay in cash) and outperform equal-weight in these more challenging conditions.
+
+All experiments use the same **train/eval split**:
+
+- **Training:** 2010-01-01 to 2022-12-31  
+- **Evaluation:** 2023-01-01 to 2025-11-12  
 
 ---
 
@@ -246,37 +255,36 @@ Below is a high-level summary plus reasoning.
 - Evaluation period: **2023-01-01 to 2025-11-12**  
 - Baseline: SPY **buy-and-hold**  
 
-**Empirical pattern (qualitative)**
+**Empirical result**
 
-- **Buy-and-hold SPY** is extremely hard to beat out-of-sample.  
-- PPO / A2C sometimes match or slightly outperform in some in-sample periods, but
-  tend to **track SPY** with slightly different risk.  
-- Vanilla DQN often underperforms due to:
-  - more volatile policies,
-  - over-trading, and
-  - instability of value-based methods in low-signal, long-horizon tasks.
+![Alt text](result/spy/a2c_spy/equity_curve_portfolio.png)
+![Alt text](result/spy/ppo_spy/equity_curve_portfolio.png)
+![Alt text](result/spy/dqn_spy/equity_curve_portfolio.png)
 
-**Reasons**
+In this setup, all three algorithms (PPO, A2C, DQN):
 
-1. **Single asset + strong long-term uptrend ⇒ optimal policy ≈ buy & hold.**  
-   There is no diversification: the only decisions are timing leverage / shorting.  
-   In long SPY bull markets, most “smart” timing rules actually hurt performance after
-   transaction costs.
+- converge to policies that are essentially **long-only buy-and-hold SPY** in the out-of-sample period, and  
+- the equity curves of the learned policies **almost perfectly overlap** with the SPY buy-and-hold curve during evaluation.
 
-2. **Efficient Market Hypothesis (EMH).**  
-   EMH suggests it is hard to consistently beat broad index ETFs like SPY with timing alone, because prices quickly incorporate available information.  
+In other words, the “best” policies they discover are **indistinguishable from buy-and-hold** at the time scale and cost structure we use.
 
-3. **RL algorithms are not designed for ultra-low signal-to-noise, long-horizon tasks.**  
-   Many DRL portfolio papers find that:
-   - RL can outperform benchmarks in specific backtests or markets,  
-   - but **out-of-sample robustness is weak**, and results are sensitive to hyper-parameters and time windows.  
+**Why do all three algorithms converge to buy-and-hold?**
 
-4. **Transaction costs + exploration.**  
-   PPO / A2C / DQN explore by changing positions; small noisy forecasts plus costs mean
-   that “doing something” is often worse than “doing nothing” (buy-and-hold).
+1. **SPY is a long-term uptrend; buy-and-hold is near-optimal.**  
+   Over 2010-01-01 to 2025-11-12, SPY exhibits a strong long-run upward drift despite corrections. If you penalize transaction costs and risk, the globally optimal policy in a single-asset setting is “**be long most of the time and don’t trade too much**.” Trying to time every wiggle tends to hurt performance.
+
+2. **Reward structure discourages over-trading.**  
+   The reward integrates both return and risk (volatility / drawdown) and subtracts transaction costs. Any strategy that frequently switches between long / flat / short needs very high prediction accuracy to beat the simple “stay long” approach. The agents quickly “learn” that trading too much reduces cumulative reward, and settle into a stable, low-turnover policy.
+
+3. **Limited information and noisy signals.**  
+   The state is built from past prices/indicators of a single index. Predictability is weak; most patterns are indistinguishable from noise. For PPO/A2C, the policy gradient signal pushes the policy toward a robust mode of behavior that works across many trajectories: **stay long**.  
+   For DQN, the Q-values associated with being long almost always dominate those for other actions, leading it to favor a near-constant long position.
+
+4. **Clipping and regularization effects (especially for PPO).**  
+   Policy gradient methods like PPO use clipping and entropy to keep policies from making large, unstable updates. When combined with a strong upward trend and transaction costs, the policy tends to “lock in” to a region of the parameter space corresponding to **persistent long exposure**.
 
 **Takeaway:**  
-For a single highly efficient index like SPY, **buy-and-hold is incredibly strong**. RL mostly ends up learning a noisy approximation to buy-and-hold, and often underperforms once you account for costs.
+On a single efficient index like SPY, over a long bull market, RL essentially **rediscovers buy-and-hold** as the optimal strategy. The fact that the RL equity curves lie almost exactly on top of buy-and-hold is an empirical confirmation of this.
 
 ---
 
@@ -294,42 +302,40 @@ For a single highly efficient index like SPY, **buy-and-hold is incredibly stron
   - **Equal-weight (1/N) portfolio** across the 10 names.  
   - **S&P 500** as an external benchmark.
 
-**Empirical pattern (qualitative)**
+**Empirical result**
 
-- Equal-weight across these 10 strong performers is already a **very strong baseline**.  
-- PPO & A2C:
-  - sometimes lean toward growth names (NVDA, TSLA, AAPL),
-  - but can be noisy and sensitive to hyper-parameters.  
-- Vanilla DQN:
-  - tends to over-react and sometimes over-concentrate,  
-  - can be hurt by instability and function approximation error.  
-- **Enhanced DQN** (with template actions and risk-aware reward):
-  - often shows **better risk-adjusted performance** within this set,
-  - more stable NAV path than vanilla DQN,
-  - sometimes modestly outperforms PPO / A2C in this very specific uptrend basket.
+![Alt text](result/multi_stocks/uptrend/multi_algos_equity_curve_with_benchmarks.png)
 
-**Why can enhanced DQN look better here?**
+- The **equal-weight portfolio** across these 10 strong performers is already very strong.  
+- PPO and A2C produce reasonable allocations but generally **do not convincingly beat** the equal-weight benchmark on a risk-adjusted basis.  
+- Vanilla DQN tends to over-react and is often unstable, leading to performance that is similar to or worse than equal-weight.  
+- **Only the enhanced DQN** (with dueling architecture, Double Q-learning, prioritized replay, and template actions) manages to **barely outperform** the equal-weight portfolio in our chosen evaluation window—and the margin is modest.
 
-1. **Reduced action complexity via templates.**  
-   Instead of directly outputting arbitrary weight vectors, enhanced DQN chooses from a **small library of portfolio templates** (growth tilt, defensive tilt, etc.).  
-   This:
-   - lowers the effective action dimensionality,
-   - makes Q-learning more stable,
-   - allows the agent to focus on deciding **which “style rotation” to apply** rather than micro-tuning each asset weight.
+So even in this carefully chosen, favorable universe, enhanced DQN **only slightly** beats equal-weight, and the other RL methods generally do not.
 
-2. **Dueling architecture + Double Q-learning + prioritized replay.**  
-   These tricks improve value estimation and reduce over-optimistic Q-values, which is crucial in noisy financial data.  
+**Why is it so hard for DQN to beat equal-weight in portfolio management?**
 
-3. **Uptrend universe is forgiving.**  
-   Because the basket is biased toward long-term winners, many reasonable allocation schemes (growth tilt, sector tilt, etc.) can look good ex-post. A well-tuned RL model can “ride winners” and avoid a few laggards, producing higher Sharpe in such favorable conditions.  
+1. **Equal-weight is a very strong, robust baseline.**  
+   The “1/N” portfolio is known to be surprisingly competitive because it does not rely on noisy estimates of expected returns or covariances. Any model, including DQN, must generate a **consistent and sizable edge** to improve on 1/N after costs and volatility.
 
-4. **Equal-weight is still hard to beat.**  
-   The “1/N puzzle” literature shows that equal-weight portfolios are surprisingly competitive due to robustness to estimation error.  
-   Enhanced DQN’s apparent outperformance in this single chosen period / universe should be viewed as **conditional** and not guaranteed in general.
+2. **Q-learning struggles with noisy, high-dimensional, long-horizon problems.**  
+   Portfolio returns are noisy and multi-step: today’s action affects risk and returns for a long time. Bootstrapped value estimates (Q-targets) inherit this noise, which can destabilize learning. Even with dueling + Double Q-learning + PER, the effective signal-to-noise ratio is low, making it hard for DQN to learn subtle allocation edges over 1/N.
+
+3. **Small edge vs. large estimation error.**  
+   Even if some assets have slightly higher risk-adjusted returns than others, that edge is often very small compared to daily volatility. DQN has to estimate Q-values with enough precision to reliably tilt toward those assets, but function approximation error and limited samples can overwhelm the benefit. In contrast, equal-weight does not try to “optimize” anything—so it doesn’t suffer from estimation error in the same way.
+
+4. **Overfitting and regime sensitivity.**  
+   A DQN policy might pick up patterns that work in the training period but don’t generalize perfectly into 2023–2025. Equal-weight, being simple and static, is much less sensitive to regime changes or mis-specified patterns.
+
+5. **Transaction costs and turnover.**  
+   DQN’s discrete actions can result in relatively frequent portfolio shifts, especially if the Q-function is noisy. Even modest turnover can erode any small edge it finds. We mitigate this with template actions and risk-aware rewards in the enhanced DQN, which is likely why it **barely** beats equal-weight, while vanilla DQN typically fails to do so.
+
+**Takeaway:**  
+DQN-based portfolio management faces a double hurdle: it must extract very small edges from noisy data, and those edges must be strong enough to overcome estimation error, regime shifts, and transaction costs. Against this, equal-weight is a tough opponent, which explains why even the enhanced DQN only manages a **slight** outperformance.
 
 ---
 
-### 3.3. Experiment 3 – Three Market Regimes with Cash  
+### 3.3. Experiment 3 – Three Market trends with Cash  
 **(Enhanced DQN, template actions + cash)**
 
 **Baskets**
@@ -338,8 +344,8 @@ For a single highly efficient index like SPY, **buy-and-hold is incredibly stron
   `NVDA,AAPL,TSLA,GS,BAC,XOM,WMT,KO,UNH,MCD`  
 - **Range-bound (3 stocks)**:  
   `INTC,F,AA`  
-- **Downtrend (3 stocks)**:  
-  `VEON,PRGO,M`  
+- **Downtrend (2 stocks)**:  
+  `VEON,PRGO`  
 
 **Environment**
 
@@ -357,15 +363,21 @@ For a single highly efficient index like SPY, **buy-and-hold is incredibly stron
 
 Across **all three regimes (train: 2010-01-01 to 2022-12-31, eval: 2023-01-01 to 2025-11-12)**, enhanced DQN (template + cash) **does not consistently beat the equal-weight benchmark**:
 
+![Alt text](result/multi_stocks_cash/uptrend/equity_curve_enhanced_dqn_template_cash.png)
+
 - **Uptrend basket (with cash):**
   - RL sometimes holds too much cash during strong uptrends,
   - or rotates between styles too often, incurring transaction costs.
   - Equal-weight fully invested in strong names remains very competitive.
 
+![Alt text](result/multi_stocks_cash/fluc/equity_curve_enhanced_dqn_template_cash.png)
+
 - **Range-bound basket:**
   - Market has no clear trend; price noise dominates.
   - Any attempt to time short-term moves tends to generate churn and costs.
   - Equal-weight with low turnover is again robust.
+
+![Alt text](result/multi_stocks_cash/downtrend/equity_curve_enhanced_dqn_template_cash.png)
 
 - **Downtrend basket:**
   - Ideally, DQN **should** learn to stay near the high-cash template most of the time.
@@ -414,7 +426,7 @@ Based on the experiments in this repo and the broader literature:
   - with significant hyper-parameter sensitivity,
   - and limited robustness across markets and regimes.  
 
-In our SPY experiment, buy-and-hold is a very strong baseline that RL rarely outperforms out-of-sample (2010-01-01 to 2022-12-31 training, tested on 2023-01-01 to 2025-11-12).
+In our SPY experiment, buy-and-hold is a very strong baseline that RL essentially rediscovers and rarely outperforms out-of-sample (2010-01-01 to 2022-12-31 training, tested on 2023-01-01 to 2025-11-12).
 
 ---
 
