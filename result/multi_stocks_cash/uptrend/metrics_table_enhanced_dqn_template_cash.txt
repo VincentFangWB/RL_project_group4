@@ -1,0 +1,20 @@
+=== Enhanced DQN (template + cash) Metrics ===
+cumulative_return   :  0.361801
+annual_return       :  0.120124
+annual_vol          :  0.111857
+sharpe              :  1.073907
+max_drawdown        : -0.116102
+
+=== Equal-Weight Benchmark Metrics ===
+cumulative_return   :  1.026697
+annual_return       :  0.296277
+annual_vol          :  0.161724
+sharpe              :  1.831994
+max_drawdown        : -0.181154
+
+=== S&P 500 Benchmark Metrics ===
+cumulative_return   :  0.673820
+annual_return       :  0.208311
+annual_vol          :  0.151526
+sharpe              :  1.374757
+max_drawdown        : -0.189022
