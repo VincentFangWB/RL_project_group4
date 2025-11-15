@@ -1,0 +1,20 @@
+=== RL Portfolio Metrics ===
+cumulative_return   :  0.636319
+annual_return       :  0.198295
+annual_vol          :  0.181960
+sharpe              :  1.089770
+max_drawdown        : -0.229127
+
+=== Equal-Weight Benchmark Metrics ===
+cumulative_return   :  1.026699
+annual_return       :  0.296278
+annual_vol          :  0.161724
+sharpe              :  1.831996
+max_drawdown        : -0.181154
+
+=== S&P 500 Benchmark Metrics ===
+cumulative_return   :  0.673820
+annual_return       :  0.208311
+annual_vol          :  0.151526
+sharpe              :  1.374757
+max_drawdown        : -0.189022

@@ -1,0 +1,20 @@
+=== Enhanced DQN Portfolio Metrics ===
+cumulative_return   :  0.275617
+annual_return       :  0.093543
+annual_vol          :  0.341523
+sharpe              :  0.273901
+max_drawdown        : -0.391703
+
+=== Equal-Weight Benchmark Metrics ===
+cumulative_return   :  0.275618
+annual_return       :  0.093544
+annual_vol          :  0.341523
+sharpe              :  0.273902
+max_drawdown        : -0.391703
+
+=== S&P 500 Benchmark Metrics ===
+cumulative_return   :  0.673820
+annual_return       :  0.208311
+annual_vol          :  0.151526
+sharpe              :  1.374757
+max_drawdown        : -0.189022
